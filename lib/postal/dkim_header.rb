@@ -17,7 +17,7 @@ module Postal
     end
 
     def dkim_header
-      "DKIM-Signature: v=1;" + dkim_properties + signature
+      "DKIM-Signature: v=1;" + dkim_properties + signature.scan(/.{1,72}/).join("\r\n\t")
     end
 
     private
@@ -39,6 +39,7 @@ module Postal
     end
 
     def normalize_header(content)
+      content.gsub!("\r\n", '')                             # Unfold
       content.gsub!(/[ \t]+/, ' ')                          # Tidy whitespace
       key, value = content.split(':', 2).map{ |a| a.strip } # Split into key/value and strip whitespace
       key.downcase!                                         # Downcase the key
@@ -64,15 +65,17 @@ module Postal
 
     def dkim_properties
       String.new.tap do |header|
-        header << " a=rsa-sha256; c=relaxed/relaxed;"
-        header << " d=#{@domain_name}; s=#{@dkim_identifier}; t=#{Time.now.utc.to_i};"
-        header << " bh=#{body_hash}; h=#{header_names.join(':')};"
-        header << " b="
+        header << " a=rsa-sha256; c=relaxed/relaxed;\r\n"
+        header << "\td=#{@domain_name};\r\n"
+        header << "\ts=#{@dkim_identifier}; t=#{Time.now.utc.to_i};\r\n"
+        header << "\tbh=#{body_hash};\r\n"
+        header << "\th=#{header_names.join(':')};\r\n"
+        header << "\tb="
       end
     end
 
     def dkim_header_for_signing
-      "dkim-signature:v=1;" + dkim_properties
+      normalize_header("dkim-signature:v=1;" + dkim_properties)
     end
 
     def signable_header_string
