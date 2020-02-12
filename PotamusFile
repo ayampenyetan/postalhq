@@ -1,2 +1,1 @@
-registry: registry.katapult.dev
-path: apps/postal
+image_image: registry.katapult.dev/apps/postal
