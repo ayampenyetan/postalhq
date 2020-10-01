@@ -33,7 +33,7 @@ module Postal
       # Creates a new empty database
       #
       def create
-        @database.query("CREATE DATABASE `#{@database.database_name}` CHARSET utf8mb4 COLLATE utf8mb4_bin;")
+        @database.query("CREATE DATABASE `#{@database.database_name}` CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;")
         true
       rescue Mysql2::Error => e
         e.message =~ /database exists/ ? false : raise
