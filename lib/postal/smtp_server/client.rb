@@ -312,8 +312,18 @@ module Postal
           end
 
         else
-          # This is unaccepted mail
-          '530 Authentication required'
+          # User is trying to relay but is not authenticated. Try to authenticate by IP address
+          @credential = Credential.where(:type => 'SMTP-IP').all.sort_by { |c| c.ipaddr&.prefix || 0 }.reverse.find do |credential|
+            credential.ipaddr.include?(@ip_address)
+          end
+
+          if @credential
+            # Retry with credential
+            @credential.use
+            rcpt_to(data)
+          else
+            '530 Authentication required'
+          end
         end
       end
 
@@ -326,7 +336,7 @@ module Postal
         @headers = {}
         @receiving_headers = true
 
-        received_header_content = "from #{@helo_name} (#{@hostname} [#{@ip_address}]) by #{Postal.config.dns.smtp_server_hostname} with SMTP; #{Time.now.rfc2822.to_s}".force_encoding('BINARY')
+        received_header_content = "from #{@helo_name} (#{@hostname} [#{@ip_address}]) by #{Postal.config.dns.smtp_server_hostname} with SMTP; #{Time.now.utc.rfc2822.to_s}".force_encoding('BINARY')
         if !Postal.config.smtp_server.strip_received_headers?
           @data << "Received: #{received_header_content}\r\n"
         end
@@ -377,11 +387,15 @@ module Postal
       end
 
       def finished
-        if @data.bytesize > 14.megabytes.to_i
-          return "552 Message too large (maximum size 14MB)"
+        if @data.bytesize > Postal.config.smtp_server.max_message_size.megabytes.to_i
+          transaction_reset
+          @state = :welcomed
+          return "552 Message too large (maximum size %dMB)" % Postal.config.smtp_server.max_message_size
         end
 
         if @headers['received'].select { |r| r =~ /by #{Postal.config.dns.smtp_server_hostname}/ }.count > 4
+          transaction_reset
+          @state = :welcomed
           return '550 Loop detected'
         end
 
@@ -389,6 +403,8 @@ module Postal
         if @credential
           authenticated_domain = @credential.server.find_authenticated_domain_from_headers(@headers)
           if authenticated_domain.nil?
+            transaction_reset
+            @state = :welcomed
             return '530 From/Sender name is not valid'
           end
         end

@@ -12,6 +12,8 @@ general:
   use_ip_pools: false
   exception_url:
   maximum_delivery_attempts: 18
+  maximum_hold_expiry_days: 7
+  suppression_list_removal_delay: 30
   use_local_ns_for_domains: false
 
 web_server:
@@ -21,7 +23,12 @@ web_server:
 
 fast_server:
   enabled: false
-  bind_address: 0.0.0.0
+  bind_address:
+    # Set appropriate IP addresses to listen on. These should be dedicated IP
+    # addresses just used for this server. You should list IPv4 and IPv6 addresses
+    # as appropriate.
+    # - 1.2.3.4
+    # - abcd:a:b:c:d::1
   port: 80
   ssl_port: 443
   proxy_protocol: false
@@ -68,9 +75,12 @@ smtp_server:
   tls_enabled: false
   tls_certificate_path: # Defaults to config/smtp.cert
   tls_private_key_path: # Defaults to config/smtp.key
+  tls_ciphers:
+  ssl_version: SSLv23
   proxy_protocol: false
   log_connect: true
   strip_received_headers: false
+  max_message_size: 14 # size in Megabytes
 
 smtp_relays:
   -
@@ -112,3 +122,7 @@ clamav:
   enabled: false
   host: 127.0.0.1
   port: 2000
+
+smtp_client:
+  open_timeout: 30
+  read_timeout: 60
